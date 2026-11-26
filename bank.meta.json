@@ -1,0 +1,9 @@
+{
+  "mode": "team_champion_snapshot",
+  "games": 138785,
+  "questions": 8478,
+  "source": "https://huggingface.co/datasets/gptilt/lol-esports-matches",
+  "upstream": "https://lol.fandom.com/wiki/Leaguepedia",
+  "license": "CC BY-SA 3.0",
+  "limitation": "No individual player picks; coverage varies by competition."
+}
