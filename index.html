@@ -1,21 +1,335 @@
-<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Krillion Esport</title><style>*{box-sizing:border-box}body{margin:0;background:#071522;color:#e8e3cf;font:16px system-ui}main{max-width:760px;margin:auto;padding:24px}header{display:flex;justify-content:space-between;color:#c8aa6e;letter-spacing:2px}h1{font-size:clamp(36px,8vw,64px);margin:24px 0 0;color:#e8ce90}p{line-height:1.6;color:#a9c4d3}.panel{background:#102638;border:1px solid #385064;border-radius:18px;padding:24px;margin:20px 0}button,input{font:inherit;border-radius:8px;padding:13px}button{background:#d5b674;color:#10202a;border:0;font-weight:bold;cursor:pointer}input{background:#081b2a;color:white;border:1px solid #567184;width:100%;margin:12px 0}button:disabled{opacity:.4}#sea{height:190px;position:relative;overflow:hidden;border-radius:14px;background:linear-gradient(#24617a,#102c48,#030b19)}#fish{position:absolute;left:48%;top:8%;font-size:30px;transition:top .8s}#depth{position:absolute;right:12px;top:12px;color:white}#bar{height:5px;background:#d5b674;transition:width .3s}small{color:#a9c4d3}#feedback{min-height:65px} .hide{display:none} .row{display:flex;justify-content:space-between;gap:12px;align-items:center} .actions{display:flex;flex-wrap:wrap;gap:10px}.result{border-top:1px solid #385064;padding:12px 0}#sea{background:linear-gradient(#24617a,#102c48,#030b19)}#bar{margin-top:12px}button:focus-visible,input:focus-visible{outline:3px solid #79d5d8} </style><body><main><header><b>LEAGUE OF LEGENDS / ESPORT</b><span id="record"></span></header><h1>KRILLION <span style="color:#79d5d8">ESPORT</span></h1><p>Teste tes connaissances de la scène compétitive de League of Legends.</p><div id="sea"><span id="fish">🐟</span><span id="depth">0 m</span></div><section class="panel" id="home"><h2>Explore les abysses</h2><p>7 questions • 25 secondes chacune • une réponse par question. Une réponse rare rapporte jusqu'à 100 points. Les points deviennent des mètres de profondeur.</p><div class="actions"><button type="button" data-action="start(false)">Partie libre</button><button type="button" data-action="start(true)">Défi quotidien</button><button type="button" data-action="stats()">Statistiques</button></div><p id="bankcount"></p><label>Importer une banque Leaguepedia (JSON) <input type="file" id="import" accept=".json,application/json"></label><p id="compat" role="status">Si ce message reste affiché, JavaScript est bloqué. Ouvre le fichier dans un navigateur complet ou utilise une version hébergée.</p><p><small>Quiz non officiel. Rareté estimée selon le nombre de matchs du joueur pour la question, pas selon les réponses de la communauté. Toutes les régions documentées sont admissibles.</small></p></section><section class="panel hide" id="game"><div class="row"><small id="progress"></small><b id="time"></b></div><div id="bar"></div><p id="cat"></p><h2 id="question"></h2><form id="form"><input id="answer" autocomplete="off" placeholder="Ta réponse…" aria-label="Ta réponse"><button type="submit" id="submit">Valider</button></form><p id="feedback" aria-live="polite"></p><button id="next" class="hide" type="button" data-action="advance()">Question suivante</button></section><section class="panel hide" id="end"><h2>Fin de la plongée</h2><h1 id="total"></h1><p id="summary"></p><div id="review"></div><div class="actions"><button type="button" data-action="start(false)">Rejouer</button><button type="button" data-action="home()">Accueil</button></div></section><section class="panel hide" id="stats"><h2>Mes statistiques</h2><div id="statbody"></div><button type="button" data-action="home()">Accueil</button></section></main><script>
-const pool=[];const aliases={};const norm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
-function add(c,q,n){let a=n.split(',');pool.push([c,q,a.map((x,j)=>x.trim()+':'+Math.round(25+75*j/Math.max(1,a.length-1))).join('|')])}
-const $=id=>document.getElementById(id);let rounds,i,score,timer,locked,correct,mode,day,log=[];let history=[];let best=0;try{history=JSON.parse(localStorage.getItem('krillEsportHistory1')||'[]');if(!Array.isArray(history))history=[];history=history.filter(h=>h&&Array.isArray(h.log));best=+localStorage.getItem('krillEsportBest1')||0}catch{};
-function save(){try{localStorage.setItem('krillEsportHistory1',JSON.stringify(history));localStorage.setItem('krillEsportBest1',best)}catch{}}function record(){$('record').textContent='RECORD '+best+' m'}record();$('bankcount').textContent='Banque Leaguepedia : chargement au lancement ou import JSON.';
-function screen(id){for(let x of ['home','game','end','stats'])$(x).classList.toggle('hide',x!==id)}function home(){clearInterval(timer);screen('home')}function rank(s){return ['Fer','Bronze','Argent','Or','Platine','Émeraude','Diamant','Maître','Grandmaster','Challenger'][Math.min(9,Math.floor(s/70))]}
-function entries(){return rounds[i][2]}
-async function start(d){if(pool.length<7){await loadBank();if(pool.length<7)return;}mode=d?'daily':'free';day=new Date().toISOString().slice(0,10);if(d&&history.some(h=>h.mode==='daily'&&h.day===day)){stats();return}let seed=Number(day.replace(/-/g,''));function rand(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return d?seed/4294967296:Math.random()}let shuffled=[...pool];for(let j=shuffled.length-1;j>0;j--){let k=Math.floor(rand()*(j+1));[shuffled[j],shuffled[k]]=[shuffled[k],shuffled[j]]}rounds=[];for(let c of ['Champions','Équipes','Tournois','Postes']){let q=shuffled.find(x=>x[0]===c);if(q)rounds.push(q)}rounds.push(...shuffled.filter(q=>!rounds.includes(q)).slice(0,7-rounds.length));for(let j=rounds.length-1;j>0;j--){let k=Math.floor(rand()*(j+1));[rounds[j],rounds[k]]=[rounds[k],rounds[j]]}i=score=correct=0;log=[];screen('game');depth();show()}
-function depth(){$('depth').textContent=score+' m';$('fish').style.top=(8+score/700*70)+'%'}function show(){locked=false;$('progress').textContent=`QUESTION ${i+1} / 7 · ${mode==='daily'?'QUOTIDIEN':'LIBRE'}`;$('cat').textContent=rounds[i][0];$('question').textContent=rounds[i][1];$('answer').value='';$('answer').disabled=false;$('submit').disabled=false;$('feedback').textContent='';$('next').classList.add('hide');let deadline=Date.now()+25000;clearInterval(timer);function tick(){let left=Math.max(0,Math.ceil((deadline-Date.now())/1000));$('time').textContent=left+' s';$('bar').style.width=left/25*100+'%';if(!left)finish(true)}timer=setInterval(tick,100);tick()}
-function finish(timeout){if(locked)return;locked=true;clearInterval(timer);let a=norm($('answer').value),list=entries(),hit=!timeout&&list.find(e=>e.names.some(n=>norm(n)===a||aliases[norm(n)]===a));let p=hit?hit.p:0;score+=p;if(hit)correct++;let rare=[...list].sort((a,b)=>b.p-a.p)[0];log.push({cat:rounds[i][0],q:rounds[i][1],answer:$('answer').value,p,rare:rare.names[0]});$('feedback').textContent=hit?`Bonne réponse ! +${p} m · ${p>=70?'Très rare':p>=40?'Rare':'Courante'} (fréquence de jeu estimée).`:(timeout?'Temps écoulé.':'Réponse absente des données importées.')+' Exemple : '+rare.names[0];if(hit&&hit.source){let link=document.createElement('a');link.href='https://lol.fandom.com/wiki/'+encodeURIComponent(hit.source.replace(/ /g,'_'));link.textContent=' · Preuve Leaguepedia';link.target='_blank';link.rel='noopener';link.style.color='#79d5d8';$('feedback').appendChild(link)}depth();$('answer').disabled=true;$('submit').disabled=true;$('next').textContent=i===6?'Voir mon résultat':'Question suivante';$('next').classList.remove('hide')}
-$('form').onsubmit=e=>{e.preventDefault();if($('answer').value.trim())finish(false)};function line(parent,t){let el=document.createElement('div');el.className='result';el.textContent=t;parent.appendChild(el)}function advance(){if(!locked)return;if(++i<7){show();return}screen('end');$('total').textContent=score+' m · '+rank(score);$('summary').textContent=correct+'/7 bonnes réponses. '+(score>best?'Nouveau record !':'');best=Math.max(best,score);history.unshift({day,mode,score,correct,log});save();record();$('review').textContent='';for(let r of log)line($('review'),r.q+' — '+(r.answer||'Sans réponse')+' · '+r.p+' m · Exemple rare : '+r.rare)}
-function stats(){screen('stats');let el=$('statbody');el.textContent='';line(el,history.length+' parties · Record : '+best+' m');for(let c of ['Champions','Équipes','Tournois','Postes']){let a=[].concat.apply([],history.map(h=>h.log)).filter(r=>r.cat===c);line(el,c+' : '+(a.length?Math.round(100*a.filter(r=>r.p>0).length/a.length)+' % de réussite · '+a.length+' questions':'Pas encore joué'))}line(el,'Défi UTC du '+new Date().toISOString().slice(0,10)+' : '+(history.some(h=>h.mode==='daily'&&h.day===new Date().toISOString().slice(0,10))?'terminé':'disponible'));for(let h of history.slice(0,10))line(el,h.day+' · '+(h.mode==='daily'?'Défi':'Libre')+' · '+h.score+' m · '+rank(h.score))}
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Krillion Esport — Road to Challenger</title><meta name="theme-color" content="#08121b"><style>
+:root{--bg:#08121b;--paper:#f3eee3;--muted:#a6b6bf;--gold:#e6c58c;--line:#36444a;--teal:#83d9ce;--panel:#111e28;--serif:Georgia,'Times New Roman',serif;--sans:Inter,'Segoe UI',system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 75% 5%,#18313c 0,transparent 42%),#08121b;color:var(--paper);font:15px/1.55 var(--sans)}body:before{content:"";position:fixed;inset:0;background:repeating-linear-gradient(115deg,transparent 0 65px,#a9d8d006 65px 66px);pointer-events:none}button,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--teal);outline-offset:4px}a{color:var(--teal)}.hide{display:none!important}.page{position:relative;width:min(1280px,100%);margin:auto;padding:0 32px 24px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:15px;height:84px;border-bottom:1px solid #9b9c792c}.brand{display:flex;align-items:center;gap:13px}.brand-mark{width:40px;height:46px;filter:drop-shadow(0 0 10px #e6c58c33)}.brand strong{display:block;font-family:var(--serif);font-size:23px;letter-spacing:.035em;line-height:1}.brand small{display:block;font-size:10px;letter-spacing:.20em;color:var(--muted);margin-top:5px;text-transform:uppercase}.topnav{display:flex;align-items:center;gap:18px}.nav-btn{background:none;border:0;padding:9px;color:var(--muted);font-weight:600;font-size:13px}.nav-btn:hover{color:var(--gold)}.record-pill{display:flex;gap:9px;align-items:center;padding:8px 14px;border:1px solid #c5a87555;color:var(--gold);font-size:12px;white-space:nowrap;background:#111e28}.record-pill:before{content:'◇';font-size:19px}.hero{position:relative;isolation:isolate;display:grid;grid-template-columns:1.03fr 1fr;min-height:412px;margin:23px 0 18px;border:1px solid #8f92754a;background:linear-gradient(110deg,#152932,#0a151e 65%);overflow:hidden}.hero:after,.panel:after,.ladder:after{content:'';position:absolute;inset:5px;border:1px solid #c8b78c12;pointer-events:none}.hero-copy{padding:33px 30px 30px 38px;position:relative;z-index:2;align-self:center}.eyebrow,.section-title{font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--gold);font-weight:750;display:flex;align-items:center;gap:9px}.eyebrow:before,.section-title:before{content:'◆';font-size:8px;color:var(--teal)}.hero h1{font-family:var(--serif);font-size:clamp(44px,5.2vw,75px);line-height:.97;font-weight:400;letter-spacing:-.045em;margin:17px 0 16px;color:#f5f0e4}.hero h1 em{font-style:normal;color:var(--gold);display:block;text-shadow:0 0 40px #e3bc7333}.lead{max-width:430px;color:#c6d1d3;margin:0 0 22px;font-size:15px}.hero-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.btn{display:inline-flex;justify-content:center;align-items:center;gap:10px;min-height:48px;border:1px solid #617679;background:#1a2c37;color:#ecebe2;padding:12px 20px;font-weight:700;transition:transform .18s,background .18s,box-shadow .18s;position:relative}.btn:hover:not(:disabled){transform:translateY(-2px);background:#25414c}.btn-primary{color:#14232a;background:linear-gradient(105deg,#e7ca91,#b9945b);border-color:#f7db9b;box-shadow:inset 0 0 0 3px #132b3422,0 5px 20px #b6915722}.btn-primary:hover:not(:disabled){background:#f6dba3;box-shadow:0 6px 22px #d5b27644}.btn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7}.hero-meta{margin-top:22px;display:flex;gap:18px;flex-wrap:wrap;color:#b1c3c8;font-size:11px;letter-spacing:.04em}.hero-meta strong{color:var(--paper);font-size:13px}.hero-art{position:relative;min-width:0;overflow:hidden;background:#102733}.arena{width:100%;height:100%;position:absolute;inset:0;object-fit:cover;display:block;preserve-aspect-ratio:xMidYMid slice}.hero-art:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#12252d,transparent 17%,transparent 88%,#0a172266),linear-gradient(0deg,#0b1927a0,transparent 20%);pointer-events:none}.art-caption{position:absolute;bottom:12px;right:20px;z-index:1;letter-spacing:.20em;font-size:9px;text-transform:uppercase;color:#dfcfa4}.corner{position:absolute;width:18px;height:18px;border:solid #cbb78c;z-index:3;pointer-events:none}.corner.tl{left:6px;top:6px;border-width:1px 0 0 1px}.corner.br{right:6px;bottom:6px;border-width:0 1px 1px 0}.ladder{position:relative;background:linear-gradient(115deg,#152631,#101b24);border:1px solid #425451;padding:18px 24px 16px;margin-bottom:18px;overflow:hidden}.ladder-top{display:flex;align-items:center;justify-content:space-between;gap:16px}.rank-display{display:flex;align-items:center;gap:10px}.rank-emblem{width:65px;height:60px;display:grid;place-items:center}.rank-emblem svg{width:100%;height:100%}.rank-meta strong{display:block;font-family:var(--serif);font-size:26px;line-height:1.1}.rank-meta span,.lp-head{font-size:12px;color:var(--muted)}.lp-track{width:min(360px,45%)}.lp-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:7px}.progress-shell{height:7px;background:#07131b;border:1px solid #456064;overflow:hidden}.progress-fill{height:100%;background:linear-gradient(90deg,#5ebcb8,#e9cb8a);transition:width .5s;box-shadow:0 0 12px #9ce7d3}.rank-list{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;margin-top:13px;position:relative}.rank-list:before{content:'';position:absolute;height:1px;background:linear-gradient(90deg,#59616a,#c8a16d,#8be3d6,#c19ce5,#e6c58c);top:40px;left:5%;right:5%;opacity:.5}.rank-pill{position:relative;display:flex;align-items:center;flex-direction:column;color:#b1bec2;font-size:10px;padding:5px 2px 7px;border:1px solid transparent;min-width:0;transition:background .2s}.rank-pill svg{width:min(68px,90%);height:60px;filter:drop-shadow(0 3px 4px #0007)}.rank-pill.active{background:linear-gradient(0deg,#b9d8d014,transparent);border-color:#b5d3c84d;color:#f2e5c8}.rank-pill.active:after{content:'◆';position:absolute;bottom:-6px;font-size:9px;color:var(--gold)}.rank-pill small{font-size:9px;color:#8ca0a7;margin-top:2px}.layout{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}.panel{position:relative;padding:24px;background:linear-gradient(135deg,#172833,#101c26);border:1px solid #425451}.panel h2{font-family:var(--serif);font-size:28px;font-weight:400;margin:8px 0 12px}.panel-sub,.muted{color:var(--muted)}.modes{display:grid;grid-template-columns:1fr 1fr;gap:12px}.mode-card{position:relative;text-align:left;padding:17px 15px 14px;border:1px solid #526465;background:linear-gradient(140deg,#21363d,#111d29);color:var(--paper);min-width:0;overflow:hidden;transition:background .2s,border-color .2s}.mode-card:hover{border-color:var(--gold);background:#29424b}.mode-card:after{content:'';position:absolute;width:100px;height:100px;right:-45px;top:-40px;transform:rotate(45deg);border:1px solid #d6bf8c33;box-shadow:0 0 0 8px #d6bf8c09}.mode-icon{width:32px;height:32px;stroke:var(--gold);fill:none;stroke-width:1.5;margin-bottom:8px}.mode-card strong{display:block;font-size:15px}.mode-card span{display:block;font-size:12px;color:#b3c3c7;margin-top:3px}.mode-card b{display:block;margin-top:12px;font-size:11px;color:var(--gold);letter-spacing:.1em;text-transform:uppercase}.category-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:12px}.category{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #c3d2c515}.category svg{width:27px;height:27px;flex:none;stroke:var(--teal);stroke-width:1.5;fill:none}.category strong{font-size:13px;display:block}.category small{color:var(--muted);font-size:11px;display:block}.data-line{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:12px;color:#b0c6c7}.data-line:before{content:'◆';color:var(--teal);font-size:9px}.data-line.pending:before{color:var(--gold)}details{margin-top:12px;color:var(--muted);font-size:12px}summary{cursor:pointer}input[type=file]{max-width:100%;margin:10px 0;color:var(--muted)}.status-box{padding:12px;border:1px solid #97666b;margin-top:10px;color:#f1c8c6}.footer{display:flex;justify-content:space-between;gap:16px;color:#9eafb6;font-size:11px;margin:18px 0}.game-shell{max-width:950px;margin:0 auto 20px;padding:0;overflow:hidden}.game-header{padding:22px 30px 17px;border-bottom:1px solid #a1b3b329}.quiz-progress{display:flex;justify-content:space-between;align-items:center;gap:10px}.question-pill{font-size:12px;color:var(--gold);letter-spacing:.12em;text-transform:uppercase}.timer{font-variant-numeric:tabular-nums;font-size:24px;color:var(--gold);font-weight:750}.timer.urgent{color:#ff9c9b}.bar-shell{height:5px;background:#09151d;margin-top:12px}.bar{height:100%;background:linear-gradient(90deg,#64c5be,#e7c587)}.game-body{padding:30px}.cat-badge{color:var(--teal);font-size:11px;letter-spacing:.16em;text-transform:uppercase}.question{font-family:var(--serif);font-size:clamp(27px,4vw,43px);line-height:1.22;margin:15px 0 24px}.answer-form{display:flex;gap:10px}.text-input{width:100%;min-width:0;background:#0a1720;color:var(--paper);border:1px solid #6c8988;padding:15px;font-size:17px}.feedback{padding:14px;margin-top:16px;border-left:2px solid #5c8888;background:#0d1e28;color:#c8d9d9;min-height:54px}.feedback.success{border-color:#88dcb6;background:#1b3835}.feedback.error{border-color:#e38a8a;background:#39282d}.next-wrap{margin-top:14px}.end-header{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}.summary-card{text-align:center;padding:18px 28px;border:1px solid #a38b62;background:#182b33}.summary-score{font-size:38px;color:var(--gold);font-family:var(--serif);margin:0}.summary-rank{color:var(--teal);font-weight:700}.review,.stats-list{display:grid;gap:10px;margin:18px 0}.review-item,.stats-item{padding:13px 15px;background:#0d1d26;border-left:2px solid #597d81}.review-item strong{display:block;font-weight:600}.review-item span{font-size:13px;color:var(--muted)}.promo{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:4;background:#183c42;border:1px solid var(--gold);padding:8px 20px;color:var(--gold);box-shadow:0 6px 24px #0009;animation:promote .45s ease-out;white-space:nowrap;font-weight:700;font-size:12px}@keyframes promote{from{opacity:0;transform:translate(-50%,10px) scale(.9)}to{opacity:1;transform:translate(-50%,0) scale(1)}}.rank-pill.active svg{filter:drop-shadow(0 0 7px #d6d6aa55)}.trophy{animation:float 7s ease-in-out infinite;transform-origin:410px 270px}@keyframes float{50%{transform:translateY(-5px)}}body.playing .hero{display:none}body.playing .ladder{margin-top:20px}body.playing .rank-list{margin-top:5px}body.playing .rank-pill svg{height:43px}body.playing .rank-list:before{top:28px}body.playing .rank-pill small{display:none}
+@media(max-width:860px){.page{padding:0 18px 20px}.hero{grid-template-columns:1fr 1fr;min-height:370px}.hero-copy{padding:24px}.hero-meta{gap:9px}.rank-list{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.rank-list:before{display:none}.rank-pill svg{height:48px}.layout{grid-template-columns:1fr}.topnav{gap:7px}.record-pill{font-size:11px}.hero h1{font-size:clamp(39px,6vw,60px)}}@media(max-width:570px){.page{padding:0 12px 16px}.topbar{height:auto;min-height:72px;padding:12px 2px;flex-wrap:wrap}.brand strong{font-size:19px}.brand small{font-size:8px}.brand-mark{width:31px;height:37px}.topnav{width:100%;justify-content:space-between;gap:8px}.topnav .nav-btn{display:block;padding:6px 0;font-size:11px}.topnav .nav-btn:first-child{display:none}.record-pill{padding:6px 8px}.hero{grid-template-columns:1fr;margin-top:12px}.hero-art{height:205px;grid-row:1}.hero-art .arena{height:100%;width:100%;}.hero-art:after{background:linear-gradient(0deg,#142732,transparent 35%)}.hero-copy{padding:5px 20px 22px}.hero h1{font-size:48px;margin:12px 0}.lead{font-size:14px;margin-bottom:15px}.hero-actions .btn{flex:1;font-size:13px;padding:10px 11px}.hero-meta{margin-top:14px;gap:12px;font-size:10px}.ladder{padding:13px 12px}.ladder-top{flex-wrap:wrap;gap:6px}.lp-track{width:100%;margin-top:5px}.rank-pill{font-size:9px}.rank-pill svg{height:40px}.rank-pill small{font-size:8px}.rank-emblem{width:48px;height:48px}.rank-meta strong{font-size:22px}.panel{padding:18px}.game-shell{padding:0}.game-header,.game-body{padding:18px}.answer-form{flex-direction:column}.footer{display:flex;flex-direction:column;gap:5px}.mode-card{padding:13px 10px}.panel h2{font-size:25px}.art-caption{font-size:8px}.promo{font-size:10px;top:4px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}} </style></head><body><main class="page"><header class="topbar"><div class="brand"><svg class="brand-mark" viewBox="0 0 44 52" aria-hidden="true"><path d="M22 2 40 12 37 34 22 50 7 34 4 12Z" fill="#172f37" stroke="#d9b97c" stroke-width="2"/><path d="M22 8 32 22 22 39 12 22Z" fill="#a9e0cf" stroke="#d9b97c"/><path d="M22 8V39M12 22H32" stroke="#f4e2b8" stroke-width="1"/></svg><div><strong>KRILLION <span style="color:var(--gold)">ESPORT</span></strong><small>League of Legends • Quiz compétitif</small></div></div><nav class="topnav" aria-label="Navigation"><button class="nav-btn" data-action="home()">Accueil</button><button class="nav-btn" data-action="stats()">Statistiques</button><div class="record-pill"><span>Record</span><strong id="record">Iron · 0 LP</strong></div></nav></header>
+<section class="hero" id="hero"><span class="corner tl"></span><span class="corner br"></span><div class="hero-copy"><div class="eyebrow">Road to Challenger &nbsp; / &nbsp; Esport LoL</div><h1>La route vers <em>Challenger.</em></h1><p class="lead">Des ligues régionales aux Worlds, prouve ta connaissance de la scène compétitive. Trouve des réponses rares, gagne des LP et gravis les dix rangs.</p><div class="hero-actions"><button class="btn btn-primary" type="button" data-action="start(false)">Lancer une partie <span aria-hidden="true">→</span></button><button class="btn" type="button" data-action="start(true)">Défi quotidien</button></div><div class="hero-meta"><span><strong>07</strong> questions</span><span><strong>25 s</strong> / réponse</span><span><strong>700 LP</strong> max</span></div></div><div class="hero-art"><svg class="arena" viewBox="0 0 800 510" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#0c1b30"/><stop offset=".65" stop-color="#143946"/><stop offset="1" stop-color="#071219"/></linearGradient><radialGradient id="halo"><stop stop-color="#e5be74" stop-opacity=".38"/><stop offset=".43" stop-color="#5e9d99" stop-opacity=".20"/><stop offset="1" stop-color="#112432" stop-opacity="0"/></radialGradient><linearGradient id="metal" x1="0" x2="1" y1="0" y2=".4"><stop stop-color="#665034"/><stop offset=".25" stop-color="#c3a276"/><stop offset=".44" stop-color="#fff1c5"/><stop offset=".58" stop-color="#967044"/><stop offset=".78" stop-color="#dfbe7a"/><stop offset="1" stop-color="#4d3d2a"/></linearGradient><linearGradient id="bluegem" x2=".9" y2="1"><stop stop-color="#e3fff1"/><stop offset=".35" stop-color="#71ddda"/><stop offset="1" stop-color="#164e67"/></linearGradient><linearGradient id="stone" x2="0" y2="1"><stop stop-color="#345560"/><stop offset="1" stop-color="#101d2b"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><rect width="800" height="510" fill="url(#sky)"/><ellipse cx="410" cy="220" rx="370" ry="260" fill="url(#halo)"/><circle cx="581" cy="176" r="1" fill="#f9e7c0" opacity="0.54"/><circle cx="329" cy="421" r="1" fill="#f9e7c0" opacity="0.57"/><circle cx="189" cy="94" r="0.7" fill="#83c8ce" opacity="0.51"/><circle cx="243" cy="405" r="1" fill="#83c8ce" opacity="0.27"/><circle cx="95" cy="231" r="0.7" fill="#d4b680" opacity="0.42"/><circle cx="186" cy="80" r="0.7" fill="#f9e7c0" opacity="0.45"/><circle cx="367" cy="372" r="1.5" fill="#d4b680" opacity="0.61"/><circle cx="298" cy="150" r="0.7" fill="#f9e7c0" opacity="0.64"/><circle cx="666" cy="85" r="1.5" fill="#f9e7c0" opacity="0.39"/><circle cx="224" cy="220" r="1.5" fill="#d4b680" opacity="0.35"/><circle cx="315" cy="308" r="1.5" fill="#f9e7c0" opacity="0.42"/><circle cx="139" cy="413" r="0.7" fill="#d4b680" opacity="0.23"/><circle cx="357" cy="256" r="1.5" fill="#83c8ce" opacity="0.21"/><circle cx="30" cy="415" r="1.5" fill="#83c8ce" opacity="0.38"/><circle cx="344" cy="15" r="2" fill="#83c8ce" opacity="0.39"/><circle cx="284" cy="94" r="1.5" fill="#d4b680" opacity="0.41"/><circle cx="752" cy="129" r="1" fill="#d4b680" opacity="0.24"/><circle cx="303" cy="438" r="2" fill="#f9e7c0" opacity="0.44"/><circle cx="421" cy="310" r="2" fill="#f9e7c0" opacity="0.54"/><circle cx="32" cy="477" r="2" fill="#f9e7c0" opacity="0.31"/><circle cx="671" cy="63" r="0.7" fill="#d4b680" opacity="0.56"/><circle cx="718" cy="344" r="1.5" fill="#83c8ce" opacity="0.64"/><circle cx="683" cy="428" r="2" fill="#f9e7c0" opacity="0.62"/><circle cx="469" cy="64" r="2" fill="#f9e7c0" opacity="0.20"/><circle cx="183" cy="125" r="0.7" fill="#f9e7c0" opacity="0.48"/><circle cx="222" cy="451" r="1" fill="#83c8ce" opacity="0.17"/><circle cx="571" cy="232" r="0.7" fill="#83c8ce" opacity="0.49"/><circle cx="341" cy="476" r="2" fill="#f9e7c0" opacity="0.38"/><circle cx="729" cy="133" r="2" fill="#83c8ce" opacity="0.63"/><circle cx="147" cy="348" r="0.7" fill="#d4b680" opacity="0.26"/><circle cx="154" cy="445" r="1" fill="#f9e7c0" opacity="0.21"/><circle cx="263" cy="149" r="1.5" fill="#d4b680" opacity="0.60"/><circle cx="598" cy="341" r="2" fill="#d4b680" opacity="0.19"/><circle cx="624" cy="59" r="2" fill="#f9e7c0" opacity="0.16"/><circle cx="304" cy="337" r="1" fill="#d4b680" opacity="0.22"/><circle cx="113" cy="64" r="2" fill="#f9e7c0" opacity="0.57"/><circle cx="486" cy="308" r="1.5" fill="#83c8ce" opacity="0.37"/><circle cx="329" cy="419" r="1.5" fill="#83c8ce" opacity="0.68"/><circle cx="150" cy="22" r="2" fill="#83c8ce" opacity="0.27"/><circle cx="337" cy="76" r="1" fill="#d4b680" opacity="0.25"/><circle cx="117" cy="186" r="2" fill="#d4b680" opacity="0.35"/><circle cx="760" cy="470" r="1" fill="#d4b680" opacity="0.62"/><circle cx="370" cy="296" r="1" fill="#f9e7c0" opacity="0.57"/><circle cx="217" cy="365" r="0.7" fill="#d4b680" opacity="0.39"/><circle cx="168" cy="331" r="2" fill="#83c8ce" opacity="0.68"/><circle cx="74" cy="130" r="0.7" fill="#d4b680" opacity="0.18"/><circle cx="172" cy="127" r="2" fill="#d4b680" opacity="0.17"/><circle cx="529" cy="382" r="1" fill="#d4b680" opacity="0.68"/><circle cx="710" cy="170" r="0.7" fill="#f9e7c0" opacity="0.57"/><circle cx="246" cy="229" r="1.5" fill="#83c8ce" opacity="0.53"/><circle cx="608" cy="445" r="1.5" fill="#d4b680" opacity="0.64"/><circle cx="750" cy="183" r="2" fill="#83c8ce" opacity="0.48"/><circle cx="572" cy="388" r="1.5" fill="#83c8ce" opacity="0.59"/><circle cx="232" cy="456" r="1" fill="#83c8ce" opacity="0.43"/><circle cx="251" cy="398" r="1" fill="#f9e7c0" opacity="0.64"/><circle cx="336" cy="232" r="0.7" fill="#d4b680" opacity="0.58"/><circle cx="596" cy="469" r="2" fill="#83c8ce" opacity="0.50"/><circle cx="555" cy="426" r="1.5" fill="#83c8ce" opacity="0.19"/><circle cx="435" cy="71" r="1.5" fill="#f9e7c0" opacity="0.69"/><circle cx="83" cy="209" r="1.5" fill="#83c8ce" opacity="0.25"/><circle cx="736" cy="475" r="1.5" fill="#f9e7c0" opacity="0.50"/><circle cx="203" cy="418" r="2" fill="#d4b680" opacity="0.55"/><circle cx="579" cy="344" r="0.7" fill="#d4b680" opacity="0.55"/><circle cx="361" cy="227" r="1" fill="#d4b680" opacity="0.67"/><circle cx="322" cy="227" r="1" fill="#83c8ce" opacity="0.52"/><circle cx="199" cy="175" r="1.5" fill="#83c8ce" opacity="0.19"/><circle cx="63" cy="321" r="1" fill="#f9e7c0" opacity="0.51"/><circle cx="499" cy="190" r="1.5" fill="#f9e7c0" opacity="0.38"/><circle cx="374" cy="205" r="1" fill="#f9e7c0" opacity="0.18"/><circle cx="464" cy="435" r="1" fill="#83c8ce" opacity="0.20"/><circle cx="497" cy="82" r="1.5" fill="#d4b680" opacity="0.27"/><circle cx="411" cy="159" r="2" fill="#d4b680" opacity="0.59"/><circle cx="633" cy="393" r="0.7" fill="#83c8ce" opacity="0.70"/><circle cx="192" cy="105" r="2" fill="#d4b680" opacity="0.69"/><circle cx="48" cy="435" r="1.5" fill="#d4b680" opacity="0.48"/><circle cx="522" cy="474" r="0.7" fill="#83c8ce" opacity="0.30"/><circle cx="54" cy="420" r="2" fill="#f9e7c0" opacity="0.26"/><circle cx="490" cy="282" r="0.7" fill="#83c8ce" opacity="0.65"/><circle cx="747" cy="224" r="2" fill="#d4b680" opacity="0.23"/><circle cx="506" cy="94" r="1.5" fill="#83c8ce" opacity="0.15"/><circle cx="475" cy="24" r="1" fill="#f9e7c0" opacity="0.70"/><circle cx="143" cy="343" r="1.5" fill="#83c8ce" opacity="0.48"/><circle cx="637" cy="396" r="2" fill="#d4b680" opacity="0.63"/><circle cx="268" cy="138" r="1.5" fill="#83c8ce" opacity="0.66"/><circle cx="562" cy="292" r="1.5" fill="#d4b680" opacity="0.69"/><circle cx="26" cy="27" r="0.7" fill="#d4b680" opacity="0.52"/><circle cx="100" cy="450" r="1.5" fill="#83c8ce" opacity="0.53"/><circle cx="234" cy="40" r="1" fill="#d4b680" opacity="0.65"/><circle cx="763" cy="184" r="2" fill="#d4b680" opacity="0.62"/><circle cx="143" cy="396" r="1" fill="#d4b680" opacity="0.16"/><circle cx="271" cy="469" r="2" fill="#f9e7c0" opacity="0.38"/><circle cx="52" cy="262" r="1" fill="#d4b680" opacity="0.16"/><circle cx="453" cy="318" r="1" fill="#f9e7c0" opacity="0.59"/><circle cx="469" cy="296" r="1.5" fill="#f9e7c0" opacity="0.54"/><circle cx="774" cy="370" r="1" fill="#83c8ce" opacity="0.68"/><circle cx="412" cy="333" r="0.7" fill="#f9e7c0" opacity="0.21"/><circle cx="608" cy="396" r="0.7" fill="#83c8ce" opacity="0.47"/><circle cx="625" cy="183" r="0.7" fill="#83c8ce" opacity="0.32"/><circle cx="707" cy="387" r="1" fill="#83c8ce" opacity="0.32"/><circle cx="379" cy="22" r="2" fill="#f9e7c0" opacity="0.69"/><circle cx="207" cy="284" r="2" fill="#83c8ce" opacity="0.36"/><circle cx="751" cy="365" r="1" fill="#83c8ce" opacity="0.26"/><circle cx="308" cy="436" r="1.5" fill="#f9e7c0" opacity="0.66"/><circle cx="302" cy="218" r="1.5" fill="#f9e7c0" opacity="0.17"/><circle cx="487" cy="183" r="2" fill="#d4b680" opacity="0.35"/><circle cx="232" cy="222" r="2" fill="#f9e7c0" opacity="0.23"/><circle cx="208" cy="194" r="1.5" fill="#f9e7c0" opacity="0.66"/><circle cx="376" cy="300" r="0.7" fill="#f9e7c0" opacity="0.23"/><circle cx="123" cy="178" r="1" fill="#d4b680" opacity="0.31"/><circle cx="252" cy="214" r="1" fill="#d4b680" opacity="0.64"/><circle cx="117" cy="387" r="0.7" fill="#d4b680" opacity="0.18"/><circle cx="706" cy="173" r="1" fill="#d4b680" opacity="0.16"/><circle cx="486" cy="299" r="0.7" fill="#f9e7c0" opacity="0.32"/><circle cx="135" cy="136" r="0.7" fill="#f9e7c0" opacity="0.55"/><circle cx="709" cy="239" r="2" fill="#83c8ce" opacity="0.66"/><circle cx="499" cy="414" r="2" fill="#d4b680" opacity="0.28"/><circle cx="177" cy="416" r="1" fill="#f9e7c0" opacity="0.43"/><circle cx="287" cy="317" r="2" fill="#83c8ce" opacity="0.35"/><circle cx="42" cy="39" r="2" fill="#83c8ce" opacity="0.52"/><circle cx="378" cy="225" r="2" fill="#83c8ce" opacity="0.47"/><g fill="none" stroke="#a6baba" opacity=".22"><circle cx="410" cy="211" r="180"/><circle cx="410" cy="211" r="199" stroke-dasharray="2 10"/><circle cx="410" cy="211" r="156" stroke-dasharray="60 7 2 7"/><path d="M410 7V60M410 361V417M207 211H260M560 211H613"/><path d="M410 24 585 211 410 398 235 211Z"/></g><g fill="#0a1825" stroke="#31535c" stroke-width="1.5"><path d="M0 300V120L86 90 86 235 124 211 124 135 151 114 151 262 240 307Z"/><path d="M800 300V120L714 90 714 235 676 211 676 135 649 114 649 262 560 307Z"/><path d="M0 190 94 236 94 295 0 267ZM800 190 706 236 706 295 800 267Z"/></g><g fill="#183c49" stroke="#45686c" stroke-width="1"><path d="M0 305 170 248 298 350 95 406 0 385Z"/><path d="M800 305 630 248 502 350 705 406 800 385Z"/></g><path d="M335.2 275.8 L364.0 287.9 M464.8 275.8 L436.0 287.9" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M310.7 281.7 L350.4 298.4 M489.3 281.7 L449.6 298.4" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M286.2 287.6 L336.8 309.0 M513.8 287.6 L463.2 309.0" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M261.8 293.6 L323.2 319.5 M538.2 293.6 L476.8 319.5" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M237.3 299.6 L309.6 330.1 M562.7 299.6 L490.4 330.1" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M212.8 305.5 L296.0 340.6 M587.2 305.5 L504.0 340.6" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M188.3 311.4 L282.4 351.1 M611.7 311.4 L517.6 351.1" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M163.8 317.4 L268.8 361.7 M636.2 317.4 L531.2 361.7" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M139.4 323.4 L255.2 372.2 M660.6 323.4 L544.8 372.2" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M114.9 329.3 L241.6 382.8 M685.1 329.3 L558.4 382.8" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M90.4 335.2 L228.0 393.3 M709.6 335.2 L572.0 393.3" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M65.9 341.2 L214.4 403.8 M734.1 341.2 L585.6 403.8" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M41.4 347.1 L200.8 414.4 M758.6 347.1 L599.2 414.4" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M17.0 353.1 L187.2 424.9 M783.0 353.1 L612.8 424.9" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><path d="M-7.5 359.1 L173.6 435.5 M807.5 359.1 L626.4 435.5" stroke="#477a86" stroke-opacity=".25" stroke-width="2"/><g opacity=".22" fill="#88e0e0"><path d="M56 70 345 355 286 355Z"/><path d="M746 70 475 355 533 355Z"/></g><path d="M0 510 255 351 555 351 800 510Z" fill="#0a1723" stroke="#29464c"/><g stroke="#38616c" stroke-opacity=".35" fill="none"><path d="M0 467H800M106 427H694M178 395H622M234 367H566"/><path d="M400 350 70 510M400 350 210 510M400 350V510M400 350 590 510M400 350 730 510"/></g><ellipse cx="410" cy="428" rx="185" ry="53" fill="#020913" opacity=".7"/><path d="M260 384 410 341 560 384 560 419 410 465 260 419Z" fill="url(#stone)" stroke="#b18d58" stroke-width="1.5"/><path d="M260 384 410 341 560 384 410 430Z" fill="#41606b" stroke="#d4b478"/><path d="M295 382 410 351 525 382 410 414Z" fill="#142b39" stroke="#72969c"/><path d="M410 430V464M260 384V418M560 384V418" stroke="#65858b"/><path d="M319 391 410 366 501 391 410 417Z" stroke="#84e3d7" fill="none" stroke-opacity=".65"/><g class="trophy"><path d="M367 336H453L475 376 410 397 345 376Z" fill="url(#metal)" stroke="#f4dfac"/><path d="M379 323 410 309 441 323 453 336 410 356 367 336Z" fill="url(#metal)" stroke="#e3c896"/><path d="M393 263 427 263 423 320 410 338 397 320Z" fill="url(#metal)" stroke="#e6cf9c"/><path d="M332 129 282 101 291 190 328 230 371 239 367 215 335 200 312 165 309 139 337 155Z" fill="url(#metal)" stroke="#e4c998" stroke-width="2"/><path d="M488 129 538 101 529 190 492 230 449 239 453 215 485 200 508 165 511 139 483 155Z" fill="url(#metal)" stroke="#e4c998" stroke-width="2"/><path d="M331 110 356 124 379 111 410 75 441 111 464 124 489 110 479 187 454 243 430 263 410 280 390 263 366 243 341 187Z" fill="url(#metal)" stroke="#f4dca4" stroke-width="2"/><path d="M349 138 381 145 410 103 439 145 471 138 458 190 434 230 410 250 386 230 362 190Z" fill="#173847" stroke="#f3dba8" stroke-width="2"/><path d="M410 120 443 174 410 224 377 174Z" fill="url(#bluegem)" stroke="#d8fff0" stroke-width="2"/><path d="M410 120V224M377 174H443L410 191Z" stroke="#e3ffef" opacity=".57"/><path d="M410 75 418 99 410 103 402 99Z" fill="#fff1d4"/><path d="M351 148 371 201 398 239M469 148 449 201 422 239" stroke="#eed9a6" stroke-width="2" fill="none"/><path d="M388 367 410 355 432 367 410 379Z" fill="url(#bluegem)" stroke="#d6f5e9"/></g><g stroke="#a8e9df" stroke-width="1" opacity=".7" fill="none"><path d="M220 70v22m-11-11h22M582 120v24m-12-12h24M282 265v14m-7-7h14M549 290v18m-9-9h18"/></g></svg><div class="art-caption">L'arène des légendes • Illustration originale</div></div></section>
+<section class="ladder" aria-label="Progression de rang"><div id="promotion" class="promo hide" role="status"></div><div class="ladder-top"><div class="rank-display"><div class="rank-emblem" id="rankEmblem"></div><div class="rank-meta"><div class="section-title" id="rankLabel">Meilleur rang</div><strong id="currentRank">Iron</strong><span id="currentLp">0 LP</span></div></div><div class="lp-track"><div class="lp-head"><span>Objectif Challenger</span><span id="lpHint">0 / 630 LP</span></div><div class="progress-shell"><div class="progress-fill" id="rankProgress" style="width:0%"></div></div></div></div><div class="rank-list" id="rankList"></div></section>
+<section id="homeLayout" class="layout"><div id="home" class="panel"><div class="section-title">File d'attente</div><h2>Choisis ton défi.</h2><div class="modes"><button class="mode-card" type="button" data-action="start(false)"><svg class="mode-icon" viewBox="0 0 32 32"><path d="M5 4l19 19-3 3L2 7V4ZM27 4 8 23l3 3L30 7V4ZM4 24l5 5m14 0 5-5"/></svg><strong>Partie libre</strong><span>Une nouvelle sélection à chaque partie.</span><b>Jouer →</b></button><button class="mode-card" type="button" data-action="start(true)"><svg class="mode-icon" viewBox="0 0 32 32"><rect x="4" y="7" width="24" height="21" rx="2"/><path d="M10 3v8M22 3v8M4 14h24M12 21l3 3 6-7"/></svg><strong>Défi quotidien</strong><span>Les mêmes 7 questions pour tous.</span><b>Jouer →</b></button></div><div id="bankcount" class="data-line pending">Vérification de la banque Leaguepedia…</div><div class="status-box hide" id="compat" role="status"></div><details><summary>Importer une banque de questions (JSON)</summary><input type="file" id="import" accept=".json,application/json" aria-label="Importer une banque Leaguepedia"></details></div><aside class="panel"><div class="section-title">Le terrain de jeu</div><h2>Toutes les compétitions.</h2><div class="category-grid"><div class="category"><svg viewBox="0 0 32 32"><path d="M16 3 27 10 23 24 16 29 9 24 5 10Z M10 12l6 6 6-6"/></svg><div><strong>Champions</strong><small>Picks compétitifs</small></div></div><div class="category"><svg viewBox="0 0 32 32"><path d="M4 6h24v16L16 29 4 22Z M10 13h12M16 8v13"/></svg><div><strong>Équipes</strong><small>Historique des équipes</small></div></div><div class="category"><svg viewBox="0 0 32 32"><path d="M9 4h14v12l-7 7-7-7Z M9 7H3v5l6 4M23 7h6v5l-6 4M16 23v5m-7 0h14"/></svg><div><strong>Tournois</strong><small>Worlds, MSI, ligues</small></div></div><div class="category"><svg viewBox="0 0 32 32"><path d="M5 5h22v22H5Z M5 23l18-18M5 12h7V5M20 27v-7h7"/></svg><div><strong>Postes</strong><small>Données individuelles à venir</small></div></div></div><p class="muted" style="font-size:12px;margin:13px 0 0">Toutes les régions et divisions présentes dans la banque sont admissibles. Les questions sur les joueurs et les postes seront ajoutées ultérieurement.</p></aside></section>
+<section class="panel game-shell hide" id="game"><div class="game-header"><div class="quiz-progress"><div><span id="progress" class="question-pill">Question 1 / 7</span><div class="muted" id="currentMode">Partie libre</div></div><div class="timer" id="time">25 s</div></div><div class="bar-shell"><div class="bar" id="bar"></div></div></div><div class="game-body"><div class="cat-badge" id="cat"></div><div class="question" id="question"></div><form id="form" class="answer-form"><input class="text-input" id="answer" autocomplete="off" placeholder="Entre ta réponse…" aria-label="Ta réponse"><button class="btn btn-primary" id="submit" type="submit">Valider →</button></form><div id="feedback" class="feedback neutral" aria-live="polite"></div><div class="next-wrap"><button class="btn btn-primary hide" id="next" data-action="advance()" type="button">Question suivante</button></div><button class="nav-btn" data-action="home()" type="button">Quitter la partie</button></div></section>
+<section class="panel hide" id="end"><div class="end-header"><div><div class="section-title">Fin de partie</div><h2>Ton classement</h2><p id="summary" class="muted"></p></div><div class="summary-card"><div class="summary-score" id="total"></div><div class="summary-rank" id="totalRank"></div></div></div><div class="review" id="review"></div><div class="hero-actions"><button class="btn btn-primary" data-action="start(false)">Rejouer</button><button class="btn" data-action="home()">Accueil</button></div></section>
+<section class="panel hide" id="stats"><div class="section-title">Historique</div><h2>Mes statistiques</h2><p class="muted">Tes résultats sont stockés dans ce navigateur.</p><div class="stats-list" id="statbody"></div><button class="btn" data-action="home()">Accueil</button></section>
+<footer class="footer"><span>Projet de fans non officiel · League of Legends esport</span><span>Données : <a href="https://huggingface.co/datasets/gptilt/lol-esports-matches">GPTilt</a> / <a href="https://lol.fandom.com/wiki/Leaguepedia">Leaguepedia</a> · <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a> · Rareté estimée par fréquence de jeu</span></footer></main><script>
+const pool=[];
+const aliases={};
+const rankNames=['Iron','Bronze','Silver','Gold','Platinum','Emerald','Diamond','Master','Grandmaster','Challenger'];
+const rankThresholds=[0,70,140,210,280,350,420,490,560,630];
+const maxLp=700;
+const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+const $=id=>document.getElementById(id);
+let rounds=[],i=0,score=0,timer=null,locked=false,correct=0,mode='free',day='',log=[];
+let history=[];let best=0;
+try{
+  history=JSON.parse(localStorage.getItem('krillEsportHistory2')||'[]');
+  if(!Array.isArray(history)) history=[];
+  history=history.filter(h=>h&&Array.isArray(h.log));
+  best=+localStorage.getItem('krillEsportBest2')||0;
+}catch(e){history=[];best=0}
 
+function save(){
+  try{
+    localStorage.setItem('krillEsportHistory2',JSON.stringify(history));
+    localStorage.setItem('krillEsportBest2',String(best));
+  }catch(e){}
+}
 
-function report(err){$('compat').textContent='Leaguepedia : '+err.message+' — utilise le fichier JSON importé si nécessaire.';$('compat').classList.remove('hide')}
-function install(bank){if(!Array.isArray(bank)||bank.length<7||!bank.every(q=>Array.isArray(q)&&q.length===3&&Array.isArray(q[2])&&q[2].length>0&&q[2].every(e=>Array.isArray(e.names)&&typeof e.names[0]==='string'&&Number.isFinite(e.p)&&e.p>=0&&e.p<=100)))throw Error('Banque invalide');pool.splice(0,pool.length,...bank);$('bankcount').textContent=pool.length+' questions issues de la banque Leaguepedia';$('compat').classList.add('hide')}
-$('import').addEventListener('change',async e=>{try{install(JSON.parse(await e.target.files[0].text()))}catch(err){report(err)}});
-let loading=false;async function loadBank(){if(loading)return;loading=true;try{let r=await fetch('bank.json');if(!r.ok)throw Error('bank.json introuvable');install(await r.json())}catch(err){report(err)}finally{loading=false}}
+function getRankFromScore(lp){
+  let idx=0;
+  for(let j=0;j<rankThresholds.length;j++) if(lp>=rankThresholds[j]) idx=j;
+  return {index:idx,name:rankNames[idx]};
+}
 
-(function(){var actions={'start(false)':function(){start(false).catch(report)},'start(true)':function(){start(true).catch(report)},'stats()':stats,'advance()':advance,'home()':home};var buttons=document.querySelectorAll('[data-action]');for(var j=0;j<buttons.length;j++){buttons[j].addEventListener('click',function(){try{actions[this.getAttribute('data-action')]()}catch(err){screen('home');$('compat').textContent='Erreur : '+err.message;$('compat').classList.remove('hide')}})}$('compat').classList.add('hide')})();
+function getRankProgress(lp){
+  return Math.max(0,Math.min(100,(lp/630)*100));
+}
+
+function getSubLp(lp){
+  const {index}=getRankFromScore(lp);
+  const floor=rankThresholds[index];
+  const ceil=index<rankThresholds.length-1 ? rankThresholds[index+1] : maxLp;
+  const inTier=Math.max(0,lp-floor);
+  const span=Math.max(1,ceil-floor);
+  return {inTier,span,next:index<rankNames.length-1?rankNames[index+1]:'Max'};
+}
+
+function updateHeroProgress(lp){
+  const rank=getRankFromScore(lp);
+  const sub=getSubLp(lp);
+  $('record').textContent=rank.name + ' • ' + lp + ' LP';
+  $('currentRank').textContent=rank.name;
+  $('currentLp').textContent=rank.index===rankNames.length-1 ? (lp + ' LP • Rang max') : (sub.inTier + ' LP vers ' + sub.next);
+  $('lpHint').textContent=lp + ' / 630 LP';
+  $('rankProgress').style.width=getRankProgress(lp)+'%';
+  updateRankList(rank.index);
+  updateEmblem(rank.index);
+}
+
+const palettes=[['#bdc4c5','#4a535a'],['#d7a775','#704d32'],['#d3e1ea','#697f95'],['#ffe2a1','#a77d3b'],['#b2e4e3','#387e86'],['#9deec6','#287a58'],['#b5d2ff','#456cbd'],['#e4b3ff','#8653ae'],['#ffb1b3','#b84659'],['#f9df9e','#3b9baf']];
+let crestId=0;
+function crest(idx){
+ const c=palettes[idx], id='crest'+(++crestId), spread=idx>6?6:idx>3?3:0;
+ const wing=`M43 42 21 ${22-spread} 7 ${24-spread} 18 47 29 54 14 47 23 63 45 72Z`;
+ return `<svg viewBox="0 0 100 94" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${c[0]}"/><stop offset=".46" stop-color="${c[1]}"/><stop offset=".7" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></linearGradient></defs><g fill="url(#${id})" stroke="${c[0]}" stroke-width=".8"><path d="${wing}"/><path d="${wing}" transform="translate(100 0) scale(-1 1)"/><path d="M50 9 69 23 70 49 63 71 50 86 37 71 30 49 31 23Z"/><path d="M50 16 63 30 63 52 50 73 37 52 37 30Z" fill="#14232c"/></g><path d="M50 26 60 44 50 65 40 44Z" fill="${c[0]}" stroke="#f2ead8" stroke-width=".7"/><path d="M50 26V65M40 44H60" stroke="${c[1]}"/><path d="M50 9 50 1 55 9 50 16 45 9Z" fill="${idx>6?'#ffe6b4':c[0]}"/>${idx>=7?'<path d="M21 16 28 4 34 20M79 16 72 4 66 20" fill="none" stroke="'+c[0]+'" stroke-width="2"/>':''}</svg>`;
+}
+function updateRankList(active){ const host=$('rankList');host.replaceChildren();rankNames.forEach((name,idx)=>{const div=document.createElement('div');div.className='rank-pill'+(idx===active?' active':'');div.innerHTML=crest(idx)+'<span>'+name+'</span><small>'+rankThresholds[idx]+' LP</small>';host.appendChild(div)}) }
+function updateEmblem(idx){$('rankEmblem').innerHTML=crest(idx)}
+let previousRank=0,promotionTimer;
+function promote(idx){if(idx>previousRank){const p=$('promotion');p.textContent='PROMOTION • '+rankNames[idx];p.classList.remove('hide');clearTimeout(promotionTimer);promotionTimer=setTimeout(()=>p.classList.add('hide'),2600)}previousRank=idx;}
+
+function setStatus(msg,type){
+  const box=$('compat');
+  box.textContent=msg;
+  box.classList.remove('hide');
+  box.style.borderColor=type==='error'?'rgba(255,122,151,.24)':'rgba(121,201,255,.18)';
+  box.style.background=type==='error'?'rgba(255,122,151,.08)':'rgba(121,201,255,.06)';
+}
+
+function clearStatus(){ $('compat').classList.add('hide'); }
+
+function screen(id){
+  ['home','game','end','stats'].forEach(x=>$(x).classList.toggle('hide',x!==id));
+  $('homeLayout').classList.toggle('hide',id!=='home');
+  document.body.classList.toggle('playing',id!=='home');
+  $('rankLabel').textContent=id==='game'?'Rang de la partie':'Meilleur rang';
+  if(id!=='game'){$('promotion').classList.add('hide');clearTimeout(promotionTimer);updateHeroProgress(best);}
+}
+
+function entries(){ return rounds[i][2]; }
+
+function install(bank){
+  if(!Array.isArray(bank)||bank.length<7||!bank.every(q=>Array.isArray(q)&&q.length===3&&Array.isArray(q[2])&&q[2].length>0&&q[2].every(e=>Array.isArray(e.names)&&typeof e.names[0]==='string'&&Number.isFinite(e.p)&&e.p>=0&&e.p<=100))){
+    throw Error('Banque invalide');
+  }
+  pool.length=0;for(const q of bank)pool.push(q);
+  $('bankcount').textContent=pool.length+' questions chargées depuis Leaguepedia';$('bankcount').classList.remove('pending');
+  clearStatus();
+}
+
+$('import').addEventListener('change', async e=>{
+  try{
+    const file=e.target.files && e.target.files[0];
+    if(!file) return;
+    install(JSON.parse(await file.text()));
+  }catch(err){ report(err); }
+});
+
+let loading=null;
+async function loadBank(){
+  if(loading) return loading;
+  loading=(async()=>{
+  try{
+    const r=await fetch('bank.json');
+    if(!r.ok) throw Error('bank.json introuvable');
+    install(await r.json());
+  }catch(err){ report(err); }
+  finally{ loading=null; }
+  })();return loading;
+}
+
+function report(err){
+  $('bankcount').textContent='Banque Leaguepedia non disponible';setStatus('La banque de questions n’est pas encore accessible ('+err.message+'). Tu peux importer le fichier JSON ou réessayer.','error');
+}
+
+function showHome(){
+  clearInterval(timer);
+  screen('home');
+}
+
+let starting=false;
+async function start(daily){
+  if(starting)return;
+  if(pool.length<7){
+    starting=true;
+    try{await loadBank();}finally{starting=false;}
+    if(pool.length<7)return;
+  }
+  mode=daily?'daily':'free';
+  day=new Date().toISOString().slice(0,10);
+  if(daily && history.some(h=>h.mode==='daily' && h.day===day)){
+    stats();
+    return;
+  }
+  let seed=Number(day.replace(/-/g,''));
+  function rand(){
+    seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+    return daily ? seed/4294967296 : Math.random();
+  }
+  const shuffled=[...pool];
+  for(let j=shuffled.length-1;j>0;j--){
+    const k=Math.floor(rand()*(j+1));
+    [shuffled[j],shuffled[k]]=[shuffled[k],shuffled[j]];
+  }
+  rounds=[];
+  ['Champions','Équipes','Tournois','Postes'].forEach(c=>{
+    const q=shuffled.find(x=>x[0]===c);
+    if(q) rounds.push(q);
+  });
+  rounds.push(...shuffled.filter(q=>!rounds.includes(q)).slice(0,7-rounds.length));
+  for(let j=rounds.length-1;j>0;j--){
+    const k=Math.floor(rand()*(j+1));
+    [rounds[j],rounds[k]]=[rounds[k],rounds[j]];
+  }
+  i=0;score=0;correct=0;log=[];locked=false;previousRank=0;clearTimeout(promotionTimer);$('promotion').classList.add('hide');
+  clearStatus();
+  screen('game');
+  updateLiveProgress();
+  showQuestion();
+}
+
+function updateLiveProgress(){
+  const rank=getRankFromScore(score);
+  promote(rank.index);
+  $('currentRank').textContent=rank.name;
+  $('currentLp').textContent=score+' LP sur cette partie';
+  $('lpHint').textContent=score+' / 630 LP';
+  $('rankProgress').style.width=getRankProgress(score)+'%';
+  updateRankList(rank.index);
+  updateEmblem(rank.index);
+}
+
+function showQuestion(){
+  locked=false;
+  $('progress').textContent='Question '+(i+1)+' / 7';
+  $('currentMode').textContent=mode==='daily' ? 'Défi quotidien' : 'Partie libre';
+  $('cat').textContent=rounds[i][0];
+  $('question').textContent=rounds[i][1];
+  $('answer').value='';
+  $('answer').disabled=false;
+  $('submit').disabled=false;
+  $('feedback').className='feedback neutral';
+  $('feedback').textContent='Bonne chance. Les réponses rares rapportent plus de LP.';
+  $('next').classList.add('hide');
+  const deadline=Date.now()+25000;
+  clearInterval(timer);
+  function tick(){
+    const left=Math.max(0,Math.ceil((deadline-Date.now())/1000));
+    $('time').textContent=left+' s';
+    $('time').classList.toggle('urgent',left<=5);
+    $('bar').style.width=(left/25*100)+'%';
+    if(!left) finish(true);
+  }
+  timer=setInterval(tick,100);
+  tick();
+}
+
+function finish(timeout){
+  if(locked) return;
+  locked=true;
+  clearInterval(timer);
+  const a=norm($('answer').value);
+  const list=entries();
+  const hit=!timeout && list.find(e=>e.names.some(n=>norm(n)===a||aliases[norm(n)]===a));
+  const p=hit ? hit.p : 0;
+  score+=p;
+  if(hit) correct++;
+  const rare=[...list].sort((x,y)=>y.p-x.p)[0];
+  log.push({cat:rounds[i][0],q:rounds[i][1],answer:$('answer').value,p,rare:rare.names[0]});
+
+  let text='';
+  if(hit){
+    text='Bonne réponse ! +' + p + ' LP · ' + (p>=70?'Très rare':p>=40?'Rare':'Courante') + '. Exemple de réponse rare : ' + rare.names[0];
+    $('feedback').className='feedback success';
+  } else if(timeout){
+    text='Temps écoulé. Exemple de réponse valide : ' + rare.names[0];
+    $('feedback').className='feedback error';
+  } else {
+    text='Réponse absente des données importées. Exemple de réponse valide : ' + rare.names[0];
+    $('feedback').className='feedback error';
+  }
+  $('feedback').textContent=text;
+  if(hit && hit.source){
+    const link=document.createElement('a');
+    link.href='https://lol.fandom.com/wiki/'+encodeURIComponent(hit.source.replace(/ /g,'_'));
+    link.target='_blank';
+    link.rel='noopener';
+    link.style.color='var(--cyan)';
+    link.textContent=' • Voir la source Leaguepedia';
+    $('feedback').appendChild(link);
+  }
+  $('answer').disabled=true;
+  $('submit').disabled=true;
+  $('next').textContent=i===6?'Voir mon résultat':'Question suivante';
+  $('next').classList.remove('hide');
+  updateLiveProgress();
+}
+
+$('form').addEventListener('submit', e=>{
+  e.preventDefault();
+  if($('answer').value.trim()) finish(false);
+});
+
+function buildReviewItem(r){
+  const el=document.createElement('div');
+  el.className='review-item';
+  el.innerHTML='<strong>'+escapeHtml(r.q)+'</strong><span>'+
+    (r.answer ? ('Ta réponse : '+escapeHtml(r.answer)) : 'Sans réponse')+
+    ' • '+r.p+' LP • Exemple rare : '+escapeHtml(r.rare)+
+    '</span>';
+  return el;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function advance(){
+  if(!locked) return;
+  i++;
+  if(i<7){
+    showQuestion();
+    return;
+  }
+  const rank=getRankFromScore(score);
+  screen('end');
+  $('total').textContent=score+' LP';
+  $('totalRank').textContent=rank.name;
+  $('summary').textContent=correct+'/7 bonnes réponses. '+(score>best?'Nouveau record personnel !':'Continue pour monter plus haut.');
+  $('review').innerHTML='';
+  log.forEach(r=>$('review').appendChild(buildReviewItem(r)));
+  best=Math.max(best,score);
+  history.unshift({day,mode,score,correct,log});
+  save();
+  updateHeroProgress(best);
+}
+
+function stats(){
+  clearInterval(timer);screen('stats');
+  const el=$('statbody');
+  el.innerHTML='';
+  function add(text){
+    const div=document.createElement('div');
+    div.className='stats-item';
+    div.textContent=text;
+    el.appendChild(div);
+  }
+  add('Parties jouées : '+history.length);
+  add('Meilleur score : '+best+' LP · '+getRankFromScore(best).name);
+  ['Champions','Équipes','Tournois','Postes'].forEach(c=>{
+    const a=[].concat.apply([],history.map(h=>h.log)).filter(r=>r.cat===c);
+    add(c+' : '+(a.length ? (Math.round(100*a.filter(r=>r.p>0).length/a.length)+' % de réussite · '+a.length+' questions') : 'Pas encore joué'));
+  });
+  const today=new Date().toISOString().slice(0,10);
+  add('Défi quotidien du '+today+' : '+(history.some(h=>h.mode==='daily' && h.day===today)?'terminé':'disponible'));
+  history.slice(0,10).forEach(h=>{
+    add(h.day+' · '+(h.mode==='daily'?'Défi':'Libre')+' · '+h.score+' LP · '+getRankFromScore(h.score).name);
+  });
+}
+
+(function initActions(){
+  const actions={
+    'start(false)':()=>start(false).catch(report),
+    'start(true)':()=>start(true).catch(report),
+    'stats()':stats,
+    'advance()':advance,
+    'home()':showHome
+  };
+  document.querySelectorAll('[data-action]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      try{ actions[btn.getAttribute('data-action')](); }
+      catch(err){ report(err); showHome(); }
+    });
+  });
+  updateHeroProgress(best);
+  clearStatus();
+  loadBank();
+})();
 </script></body></html>
