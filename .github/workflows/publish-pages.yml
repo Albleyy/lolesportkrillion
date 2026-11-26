@@ -1,0 +1,46 @@
+name: Publish Road to Challenger
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - bank.json
+      - bank.meta.json
+      - .github/workflows/publish-pages.yml
+  workflow_run:
+    workflows: ["Import Leaguepedia"]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/configure-pages@v5
+      - name: Prepare site
+        run: |
+          mkdir -p public
+          cp index.html bank.json public/
+          if [ -f bank.meta.json ]; then cp bank.meta.json public/; fi
+          touch public/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
