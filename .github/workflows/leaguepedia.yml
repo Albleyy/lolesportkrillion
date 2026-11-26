@@ -1,0 +1,27 @@
+name: Import Leaguepedia
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+permissions:
+  contents: write
+concurrency:
+  group: leaguepedia-import
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python import_leaguepedia.py
+      - run: |
+          python -c "import json; assert len(json.load(open('bank.json'))) >= 7"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bank.json
+          git diff --cached --quiet || git commit -m "Update Leaguepedia question bank"
+          git push
