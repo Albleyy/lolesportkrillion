@@ -254,7 +254,7 @@ function showQuestion(){
   $('answer').disabled=false;
   $('submit').disabled=false;
   $('feedback').className='feedback neutral';
-  $('feedback').textContent='Trouve une réponse valide. Tu peux réessayer sans pénalité tant qu'il reste du temps.';
+  $('feedback').textContent="Trouve une réponse valide. Tu peux réessayer sans pénalité tant qu'il reste du temps.";
   $('next').classList.add('hide');
   questionDeadline=Date.now()+25000;
   clearInterval(timer);
