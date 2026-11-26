@@ -1,6 +1,14 @@
 name: Import Leaguepedia
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "snapshot = équipe/champion ; direct = joueurs (API Leaguepedia)"
+        type: choice
+        options:
+          - snapshot
+          - direct
+        default: snapshot
   schedule:
     - cron: '23 5 * * 1'
 permissions:
@@ -12,16 +20,34 @@ jobs:
   import:
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    env:
+      IMPORT_MODE: ${{ inputs.mode || 'snapshot' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python import_leaguepedia.py
-      - run: |
-          python -c "import json; assert len(json.load(open('bank.json'))) >= 7"
+      - name: Build bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$IMPORT_MODE" = direct ]; then
+            python import_leaguepedia.py
+            python -c 'import json; from pathlib import Path; Path("bank.meta.json").write_text(json.dumps({"mode":"direct","source":"https://lol.fandom.com/wiki/Leaguepedia","license":"CC BY-SA 3.0"},indent=2))'
+          else
+            if [ -f bank.json ] && { [ ! -f bank.meta.json ] || python -c 'import json,sys; sys.exit(0 if json.load(open("bank.meta.json")).get("mode") != "team_champion_snapshot" else 1)'; }; then
+              echo "Existing non-snapshot bank preserved."
+              exit 0
+            fi
+            python -m pip install "datasets>=3,<5"
+            python import_snapshot.py
+          fi
+      - name: Validate and commit bank
+        run: |
+          python -c "import json; b=json.load(open('bank.json')); assert len(b)>=7; assert all(len(q)==3 and q[2] for q in b)"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add bank.json
+          if [ -f bank.meta.json ]; then git add bank.meta.json; fi
           git diff --cached --quiet || git commit -m "Update Leaguepedia question bank"
           git push
