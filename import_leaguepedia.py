@@ -1,11 +1,24 @@
-import json, urllib.request, urllib.parse, time, collections, math
+import json, urllib.request, urllib.parse, urllib.error, time, collections, math
 API='https://lol.fandom.com/api.php'
 def query(**kw):
     params=dict(action='cargoquery',format='json',**kw)
     req=urllib.request.Request(API+'?'+urllib.parse.urlencode(params),headers={'User-Agent':'KrillionEsport/1.0 (personal educational quiz)'})
-    with urllib.request.urlopen(req,timeout=60) as r: data=json.load(r)
-    if 'error' in data: raise RuntimeError(data['error'])
-    return [x['title'] for x in data['cargoquery']]
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req,timeout=90) as r: data=json.load(r)
+            if 'error' in data:
+                if data['error'].get('code') != 'ratelimited': raise RuntimeError(data['error'])
+                delay=65*(attempt+1)
+            else:
+                return [x['title'] for x in data['cargoquery']]
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 500, 502, 503, 504): raise
+            delay=max(65*(attempt+1), int(e.headers.get('Retry-After','0')) if e.headers.get('Retry-After','0').isdigit() else 0)
+        except (urllib.error.URLError, TimeoutError):
+            delay=65*(attempt+1)
+        print(f'API unavailable; retry in {delay}s',flush=True)
+        if attempt < 4: time.sleep(delay)
+    raise RuntimeError('Leaguepedia API unavailable after five attempts')
 def main():
     groups=collections.defaultdict(dict)
     offset=0
@@ -22,7 +35,7 @@ def main():
                 old=groups[key].get(player,(0,event)); groups[key][player]=(old[0]+count,old[1])
         offset+=len(rows); print(offset,flush=True)
         if len(rows)<500: break
-        time.sleep(1.5)
+        time.sleep(65)
     bank=[]
     for (category,q), players in sorted(groups.items()):
         if len(players)<10: continue
